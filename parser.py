@@ -1,4 +1,4 @@
-from base import TestCase, TestRequest, TestResponse, Env
+from base import TestCase, TestRequest, TestResponse, Env, Web
 
 def parse_response_body(content):
     """
@@ -30,6 +30,38 @@ def parse_response_body(content):
         return (eval_expr, content)
     return (content, None)
 
+
+def parse_response(content):
+    response = TestResponse()
+    
+    # Split content into lines and parse each line
+    lines = content.split('\n')
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Parse response body and eval expressions
+        if line.startswith('body'):
+            body_content = line.replace('body', '').strip()
+            response.body, response.eval_expr = parse_response_body(body_content)
+            
+        # Parse status code
+        elif line.startswith('status'):
+            status = line.replace('status', '').strip()
+            try:
+                response.status_code = int(status)
+            except ValueError:
+                response.status_code = 200
+                
+        # Parse headers
+        elif ':' in line:
+            header_name, header_value = line.split(':', 1)
+            response.headers[header_name.strip()] = header_value.strip()
+            
+    return response
+
+
 def parse_request(content):
     request = TestRequest()
     request.method = content.split(' ')[0]
@@ -37,11 +69,11 @@ def parse_request(content):
     return request
 
 
-def parse_response(content):
-    response = TestResponse()
-    response.body = content.split(' ')[0]
-    response.status_code = content.split(' ')[1]
-    return response
+# def parse_response(content):
+#     response = TestResponse()
+#     response.body = content.split(' ')[0]
+#     response.status_code = content.split(' ')[1]
+#     return response
 
 
 def parse_error_code(content):
@@ -86,6 +118,22 @@ def parse_env(content):
             env.env[line[0].strip()] = line[1]
     return env
 
+def parse_web(content):
+    web = Web()
+    lines = content.split('\n')
+    for line in lines:
+        line = line.strip()
+        line = line.split('=', 1)
+        print('-----web--------', line)
+        if len(line) == 2:
+            if line[0].strip() == 'command':
+                commands = line[1].strip().split(' ', 1)
+                print('-----web--------', commands)
+                web.command = commands[0]
+                web.args = commands[1].split(' ')
+    
+    return web
+
 def parse_test(test_content):
     """
     Parse test case content into a structured format.
@@ -105,6 +153,9 @@ def parse_test(test_content):
     
     for line in lines:
         # Handle section headers
+        if line.startswith('#'): 
+            continue
+
         if line.startswith('=== TEST'):
             test_case.title = line.replace('=== TEST', '').strip()
             current_section = 'description'
@@ -126,11 +177,15 @@ def parse_test(test_content):
                 test_case.request = parse_request('\n'.join(section_content).strip())
             elif current_section == 'response_body':
                 response_content = '\n'.join(section_content).strip()
-                test_case.response_body, test_case.response_body_eval = parse_response_body(response_content)
+                # test_case.response_body, test_case.response_body_eval = parse_response_body(response_content)
+                test_case.response = parse_response(response_content)
             elif current_section == 'env':
                 env_content = '\n'.join(section_content).strip()
                 env = parse_env(env_content)
                 test_case.env = env
+            elif current_section == 'web':
+                web_content = '\n'.join(section_content).strip()
+                test_case.web = parse_web(web_content)
                 
             # Clear buffer and set new section
             section_content = []

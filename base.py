@@ -28,9 +28,17 @@ class Env(object):
     
     def render(self, content):
         for key, value in self.env.items():
-            print("-----------${%s}-----------" %key)
             content = content.replace("${%s}" % key, value)
         return content
+
+
+class Web(object):
+    def __init__(self):
+        self.command = None
+        self.args = []
+
+    def __str__(self):
+        return f"command: {self.command}, args: {self.args}"
 
 
 class TestCase(object):
@@ -44,6 +52,7 @@ class TestCase(object):
         self.mysql_config = ""
         self.init_sql = ""
         self.env = Env()
+        self.web = None
 
         self.request = ""
         self.response_body = ""
